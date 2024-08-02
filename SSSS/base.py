@@ -89,6 +89,7 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
     print('Total keyword list for this run: {}'.format(key_words_list))
     print('The number of keywords for this run: {}'.format(len(key_words_list)))
 
+    count = 0
     for key_words in key_words_list:
         articles = query_result(key_words, year_from, year_to)
 
@@ -99,11 +100,15 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
             if len(articles) != 0:
                 break
 
-        time.sleep(sleep_interval + random()*60)
-        print(key_words)
-        print('sleep for {}+ seconds'.format(sleep_interval))
+        if count != 0:
+            time.sleep(sleep_interval + random()*60)
+            print('sleep for {}+ seconds'.format(sleep_interval))
 
-        for nth_paper in range(number_of_searches_per_key_word_per_year):
+        print(key_words)
+        count += 1
+        print("Number of fetched articles:", len(articles))
+
+        for nth_paper in range(min(len(articles),number_of_searches_per_key_word_per_year)):
             title_nth = articles[nth_paper]['title']
             num_citations_nth = articles[nth_paper]['num_citations']
             year_nth = articles[nth_paper]['year']

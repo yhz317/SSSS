@@ -450,6 +450,7 @@ class ScholarArticleParser(object):
         for tag in span:
             if not hasattr(tag, 'name'):
                 continue
+
             if tag.name != 'a' or tag.get('href') is None:
                 continue
 
@@ -567,9 +568,12 @@ class ScholarArticleParser120726(ScholarArticleParser):
         for tag in div:
             if not hasattr(tag, 'name'):
                 continue
-            if str(tag).lower().find('.pdf'):
-                if tag.find('div', {'class': 'gs_ttss'}):
-                    self._parse_links(tag.find('div', {'class': 'gs_ttss'}))
+            try:
+                if str(tag).lower().find('.pdf'):
+                    if tag.find('div', {'class': 'gs_ttss'}):
+                        self._parse_links(tag.find('div', {'class': 'gs_ttss'}))
+            except:
+                print("pdf not found: " + str(tag).lower())
 
             if tag.name == 'div' and self._tag_has_class(tag, 'gs_ri'):
                 # There are (at least) two formats here. In the first
