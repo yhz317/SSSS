@@ -5,6 +5,7 @@ import numpy as np
 import os
 from random import random
 import itertools
+import requests
 
 def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number_of_searches_per_key_word_per_year = 10, sleep_interval = 360):
     """
@@ -18,6 +19,8 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
     :param number_of_searches_per_key_word_per_year: int; number of paper crawled from each keyword seasrch
     :param sleep_interval: float; seconds that is setted between each search
     """
+    # print("CWD =", os.getcwd())
+    
     # generate keyword list from sub-keyword list
     all_combination = list(itertools.product(*sub_keyword_list))
     key_words_list = []
@@ -88,26 +91,21 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
     key_words_list = list(set(key_words_list) - set(completed_keyword_list))
     print('Total keyword list for this run: {}'.format(key_words_list))
     print('The number of keywords for this run: {}'.format(len(key_words_list)))
-
-    count = 0
+    
     for key_words in key_words_list:
+        
+        print(key_words)        
         articles = query_result(key_words, year_from, year_to)
-
+        print("Number of fetched articles:", len(articles))
+        
         while len(articles) == 0:
             temp = input('Please enter 1 after completing the anti-robot test at https://scholar.google.com/scholar?hl=en&as_sdt=0%2C6&q=test&btnG=')
+            
             articles = query_result(key_words, year_from, year_to)
             print(len(articles))
             if len(articles) != 0:
                 break
-
-        if count != 0:
-            time.sleep(sleep_interval + random()*60)
-            print('sleep for {}+ seconds'.format(sleep_interval))
-
-        print(key_words)
-        count += 1
-        print("Number of fetched articles:", len(articles))
-
+            
         for nth_paper in range(min(len(articles),number_of_searches_per_key_word_per_year)):
             title_nth = articles[nth_paper]['title']
             num_citations_nth = articles[nth_paper]['num_citations']
@@ -127,3 +125,6 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
                 summary_df = summary_df.append(df_nth)
                 # make sure that summary.csv file is closed
                 summary_df.to_csv('../results/topics/{}/summary.csv'.format(topic), index = False)
+        
+        print('sleep for {}+ seconds'.format(sleep_interval))
+        time.sleep(sleep_interval + random()*60)
