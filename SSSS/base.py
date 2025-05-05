@@ -7,6 +7,77 @@ from random import random
 import itertools
 import requests
 
+# --- helper to look up DOI via Crossref ---
+def lookup_doi(title, year=None):
+    """
+    Query Crossref for the given title (and optional year) 
+    Returns the top-hit DOI or None.
+    """
+    params = {
+        'query.bibliographic': title,
+        'rows': 1
+    }
+    # if you want to filter by year:
+    if year:
+        # filter expects YYYY-MM-DD; we just use the year
+        params['filter'] = f'from-pub-date:{year}-01-01,until-pub-date:{year}-12-31'
+    resp = requests.get('https://api.crossref.org/works', params=params)
+    resp.raise_for_status()
+    items = resp.json().get('message', {}).get('items', [])
+    if items:
+        return items[0].get('DOI')
+    return None
+
+def lookup_metadata(title, year=None):
+    """
+    Query Crossref for the given title (and optional year) 
+    Returns a dict with DOI, authors, issued date, abstract, link(s), and is-referenced-by-count.
+    """
+    params = {
+        'query.bibliographic': title,
+        'rows': 1,
+        # only return the fields we care about
+        'select': 'DOI,author,issued,abstract,link,is-referenced-by-count'
+    }
+    if year:
+        params['filter'] = f'from-pub-date:{year}-01-01,until-pub-date:{year}-12-31'
+    resp = requests.get('https://api.crossref.org/works', params=params)
+    resp.raise_for_status()
+    items = resp.json().get('message', {}).get('items', [])
+    if not items:
+        return {}
+    item = items[0]
+
+    # flatten authors into “Given Family; Given Family; …”
+    authors = []
+    for a in item.get('author', []):
+        given = a.get('given', '').strip()
+        family = a.get('family', '').strip()
+        authors.append(' '.join(p for p in (given, family) if p))
+    authors = '; '.join(authors)
+
+    # get first date‑part array, e.g. [2020, 5, 12]
+    date_parts = item.get('issued', {}).get('date-parts', [[None]])
+    issued = '-'.join(str(p) for p in date_parts[0] if p is not None)
+
+    # abstract may be HTML‑encoded
+    abstract = item.get('abstract')
+
+    # link[] is an array of { URL, content-type, … }
+    links = [l.get('URL') for l in item.get('link', [])]
+    link = links[0] if links else None
+
+    cited_by = item.get('is-referenced-by-count')
+
+    return {
+        'doi':              item.get('DOI'),
+        'authors':          authors,
+        'issued':           issued,
+        'abstract':         abstract,
+        'link':             link,
+        'is_referenced_by_count': cited_by
+    }
+    
 def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number_of_searches_per_key_word_per_year = 10, sleep_interval = 360):
     """
     The function conducts SSSS as introduced in the journal paper: XXX.
@@ -63,10 +134,13 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
 
     if not os.path.isdir("../results/topics/{}/".format(topic)):
         os.mkdir('../results/topics/{}/'.format(topic))
-
+        
+    crossref_cols = ['doi','authors','issued','abstract','link','is_referenced_by_count']
+    cols = ['title', 'num_citations', 'year', 'excerpt', 'url', 'url_pdf','indicator','key_words'] + crossref_cols
     # define the summary dataframe
     if not os.path.exists('../results/topics/{}/summary.csv'.format(topic)):
-        summary_df = pd.DataFrame([],columns = ['title', 'num_citations', 'year', 'excerpt', 'url', 'url_pdf','indicator','key_words'])
+        # crossref_cols = ['doi']
+        summary_df = pd.DataFrame([],columns = cols)
         summary_df.to_csv('../results/topics/{}/summary.csv'.format(topic), index = None, header = summary_df.columns)
     else:
         summary_df = pd.read_csv('../results/topics/{}/summary.csv'.format(topic))
@@ -116,15 +190,35 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
             else:
                 url_nth = articles[nth_paper]['url']
             url_pdf_nth = articles[nth_paper]['url_pdf']
+            
+            # # NEW: fetch DOI
+            # doi_nth = lookup_doi(title_nth, year=year_nth)
+            # time.sleep(1) # add a 1 s pause between Crossref calls (to be a good API citizen)
+            # NEW: fetch full metadata (incl. DOI, authors, date, abstract, link, cited‑by)
+            meta = lookup_metadata(title_nth, year=year_nth)
+            time.sleep(1)
+
             if (title_nth not in summary_df.title.tolist()) & (num_citations_nth >= citation_threshold):
                 detect_file_open()
                 #indicator_nth = int(input("\nEnter Indicator, 0 means bad paper, 1 means good paper:\n\nTitle: {}\nCitation: {}\nYear: {}\nAbstract: {}\nurl: {}\nurl_pdf: {}\n".format(title_nth,num_citations_nth,year_nth,excerpt_nth, url_nth, url_pdf_nth)))
                 indicator_nth = 0
-                df_nth = pd.DataFrame([title_nth, num_citations_nth, year_nth, excerpt_nth, url_nth, url_pdf_nth, indicator_nth, key_words]).transpose()
-                df_nth.columns = ['title', 'num_citations', 'year', 'excerpt', 'url', 'url_pdf','indicator','key_words']
-                summary_df = summary_df.append(df_nth)
+                # build row including all new metadata fields
+                df_nth = pd.DataFrame([[title_nth, num_citations_nth, year_nth, excerpt_nth, url_nth, url_pdf_nth, indicator_nth, key_words,
+                                    meta.get('doi'),
+                                    meta.get('authors'),
+                                    meta.get('issued'),
+                                    meta.get('abstract'),
+                                    meta.get('link'),
+                                    meta.get('is_referenced_by_count')
+                                    ]], columns=cols)
+                # use concat instead of append
+                summary_df = pd.concat([summary_df, df_nth], ignore_index=True)
                 # make sure that summary.csv file is closed
-                summary_df.to_csv('../results/topics/{}/summary.csv'.format(topic), index = False)
+                summary_df.to_csv('../results/topics/{}/summary.csv'.format(topic), 
+                                index = False,
+                                encoding='utf-8-sig'    # <-- UTF‑8 with BOM)
+                                )
         
-        print('sleep for {}+ seconds'.format(sleep_interval))
-        time.sleep(sleep_interval + random()*60)
+        random_sleep_interval = sleep_interval + random()*60
+        print('sleep for {}+ seconds'.format(random_sleep_interval))
+        time.sleep(random_sleep_interval)
