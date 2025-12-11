@@ -6,6 +6,8 @@ import os
 from random import random
 import itertools
 import requests
+import re
+
 
 # --- helper to look up DOI via Crossref ---
 def lookup_doi(title, year=None):
@@ -62,6 +64,9 @@ def lookup_metadata(title, year=None):
 
     # abstract may be HTML‑encoded
     abstract = item.get('abstract')
+    # --- NEW: clean abstract HTML tags ---
+    if abstract:
+        abstract = re.sub('<.*?>', '', abstract)
 
     # link[] is an array of { URL, content-type, … }
     links = [l.get('URL') for l in item.get('link', [])]
@@ -161,64 +166,88 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number
     #number_of_searches_per_key_word_per_year = int(input("Enter number of searches per key word per year (int, less than or equal to 20):"))
 
     # modified keyword list
-    completed_keyword_list = summary_df.key_words.unique().tolist()[0:-1]
-    key_words_list = list(set(key_words_list) - set(completed_keyword_list))
-    print('Total keyword list for this run: {}'.format(key_words_list))
-    print('The number of keywords for this run: {}'.format(len(key_words_list)))
+    # completed_keyword_list = summary_df.key_words.unique().tolist()[0:-1]
     
-    for key_words in key_words_list:
-        
-        print(key_words)        
-        articles = query_result(key_words, year_from, year_to)
-        print("Number of fetched articles:", len(articles))
-        
-        while len(articles) == 0:
-            temp = input('Please enter 1 after completing the anti-robot test at https://scholar.google.com/scholar?hl=en&as_sdt=0%2C6&q=test&btnG=')
-            
-            articles = query_result(key_words, year_from, year_to)
-            print(len(articles))
-            if len(articles) != 0:
-                break
-            
-        for nth_paper in range(min(len(articles),number_of_searches_per_key_word_per_year)):
-            title_nth = articles[nth_paper]['title']
-            num_citations_nth = articles[nth_paper]['num_citations']
-            year_nth = articles[nth_paper]['year']
-            excerpt_nth = articles[nth_paper]['excerpt']
-            if articles[nth_paper]['url'][0:25] == 'http://scholar.google.com':
-                url_nth = articles[nth_paper]['url'][26:]
-            else:
-                url_nth = articles[nth_paper]['url']
-            url_pdf_nth = articles[nth_paper]['url_pdf']
-            
-            # # NEW: fetch DOI
-            # doi_nth = lookup_doi(title_nth, year=year_nth)
-            # time.sleep(1) # add a 1 s pause between Crossref calls (to be a good API citizen)
-            # NEW: fetch full metadata (incl. DOI, authors, date, abstract, link, cited‑by)
-            meta = lookup_metadata(title_nth, year=year_nth)
-            time.sleep(1)
+    # key_words_list = list(set(key_words_list) - set(completed_keyword_list))
+    # print('Total keyword list for this run: {}'.format(key_words_list))
+    # print('The number of keywords for this run: {}'.format(len(key_words_list)))
 
-            if (title_nth not in summary_df.title.tolist()) & (num_citations_nth >= citation_threshold):
-                detect_file_open()
-                #indicator_nth = int(input("\nEnter Indicator, 0 means bad paper, 1 means good paper:\n\nTitle: {}\nCitation: {}\nYear: {}\nAbstract: {}\nurl: {}\nurl_pdf: {}\n".format(title_nth,num_citations_nth,year_nth,excerpt_nth, url_nth, url_pdf_nth)))
-                indicator_nth = 0
-                # build row including all new metadata fields
-                df_nth = pd.DataFrame([[title_nth, num_citations_nth, year_nth, excerpt_nth, url_nth, url_pdf_nth, indicator_nth, key_words,
-                                    meta.get('doi'),
-                                    meta.get('authors'),
-                                    meta.get('issued'),
-                                    meta.get('abstract'),
-                                    meta.get('link'),
-                                    meta.get('is_referenced_by_count')
-                                    ]], columns=cols)
-                # use concat instead of append
-                summary_df = pd.concat([summary_df, df_nth], ignore_index=True)
-                # make sure that summary.csv file is closed
-                summary_df.to_csv('../results/topics/{}/summary.csv'.format(topic), 
-                                index = False,
-                                encoding='utf-8-sig'    # <-- UTF‑8 with BOM)
-                                )
-        
-        random_sleep_interval = sleep_interval + random()*60
-        print('sleep for {}+ seconds'.format(random_sleep_interval))
-        time.sleep(random_sleep_interval)
+    completed_pairs = summary_df[['key_words', 'year']].drop_duplicates()
+
+    # 进度计数
+    total_years = year_to - year_from + 1
+    total_keywords = len(key_words_list)
+
+    year_index = 0  # 当前年份序号
+
+    for year in range(year_from, year_to+1):
+        year_index += 1
+
+        keyword_index = 0  # 当前关键词序号
+
+        for key_words in key_words_list:
+            keyword_index += 1
+
+            # 如果已经搜索过，则跳过
+            if ((completed_pairs.key_words == key_words) &
+                (completed_pairs.year == year)).any():
+                print(f"[SKIP] Year {year}, Keyword {keyword_index}/{total_keywords}: {key_words}")
+                continue
+
+            print("\n" + "=" * 80)
+            print(f"Year {year} ({year_index}/{total_years}), Keyword {keyword_index}/{total_keywords}")
+            print(f"Running: {key_words}")
+            print("=" * 80)
+
+            # 执行搜索
+            articles = query_result(key_words, year, year)
+            print(f"> Number of fetched articles: {len(articles)}")
+
+            while len(articles) == 0:
+                input('Please enter 1 after completing the anti-robot test at https://scholar.google.com/scholar?hl=en&as_sdt=0%2C6&q=test&btnG=')
+                articles = query_result(key_words, year, year)
+                print("> Retrying, fetched:", len(articles))
+                if len(articles) != 0:
+                    break
+            
+            # 处理每篇文章
+            for nth_paper in range(min(len(articles), number_of_searches_per_key_word_per_year)):
+                print(f"  Processing paper {nth_paper+1} / {min(len(articles), number_of_searches_per_key_word_per_year)}")
+
+                title_nth = articles[nth_paper]['title']
+                num_citations_nth = articles[nth_paper]['num_citations']
+                year_nth = articles[nth_paper]['year']
+                excerpt_nth = articles[nth_paper]['excerpt']
+
+                if articles[nth_paper]['url'][0:25] == 'http://scholar.google.com':
+                    url_nth = articles[nth_paper]['url'][26:]
+                else:
+                    url_nth = articles[nth_paper]['url']
+
+                url_pdf_nth = articles[nth_paper]['url_pdf']
+
+                # 交叉验证 DOIs
+                meta = lookup_metadata(title_nth, year=year_nth)
+                time.sleep(1)
+
+                if (title_nth not in summary_df.title.tolist()) and (num_citations_nth >= citation_threshold):
+                    detect_file_open()
+
+                    indicator_nth = 0
+                    df_nth = pd.DataFrame([[title_nth, num_citations_nth, year_nth, excerpt_nth, url_nth, url_pdf_nth, indicator_nth, key_words,
+                                        meta.get('doi'),
+                                        meta.get('authors'),
+                                        meta.get('issued'),
+                                        meta.get('abstract'),
+                                        meta.get('link'),
+                                        meta.get('is_referenced_by_count')
+                                        ]], columns=cols)
+
+                    summary_df = pd.concat([summary_df, df_nth], ignore_index=True)
+                    summary_df.to_csv(f'../results/topics/{topic}/summary.csv', 
+                                    index=False, encoding='utf-8-sig')
+
+            # 搜索间隔
+            random_sleep_interval = sleep_interval + random()*60
+            print(f"Sleeping {random_sleep_interval:.1f} seconds to avoid blocking...")
+            time.sleep(random_sleep_interval)

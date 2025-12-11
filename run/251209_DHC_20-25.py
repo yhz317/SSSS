@@ -46,6 +46,6 @@ sleep_interval = 60
 for year in np.arange(2025, 2019, year_interval):
     print("Year:", year)
     year_from = year
-    year_to = year + year_interval - 1
+    year_to = year 
     citation_threshold = int(max(0,(2025 - year)))
     SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold, number_of_searches_per_key_word_per_year, sleep_interval)
