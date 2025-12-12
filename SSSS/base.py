@@ -345,11 +345,33 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold,
                     url       = clean_url(normalize_field(raw_url))
                     url_pdf   = clean_url(normalize_field(raw_pdf))
                     year_found = normalize_year(raw_year)
+                    # 如果真的解析不出，就用循环年份兜底（因为你本来就在按 year 搜索）
+                    if year_found is None:
+                        year_found = year   # year 是 for year in range(year_from, year_to+1) 里的那个
                     citations = normalize_citations(raw_citations)
+
+                    # ---- 修正被 scholar 包了一层的 URL ----
+                    if isinstance(url, str) and url.startswith("http://scholar.google.com/"):
+                        # 取 scholar 前缀后面那段，如果里面还有 http，就从 http 开始截
+                        rest = url[len("http://scholar.google.com/"):]
+                        idx = rest.find("http")
+                        if idx != -1:
+                            url = rest[idx:]
+                        else:
+                            # 否则就直接用 rest
+                            url = rest
+
+                    if isinstance(url_pdf, str) and url_pdf.startswith("http://scholar.google.com/"):
+                        rest = url_pdf[len("http://scholar.google.com/"):]
+                        idx = rest.find("http")
+                        if idx != -1:
+                            url_pdf = rest[idx:]
+                        else:
+                            url_pdf = rest
 
                     # ======== DEBUG ========
                     print("    Cleaned Title:", title)
-                    print("    Cleaned Year:", year_found)
+                    # print("    Cleaned Year:", year_found)
                     print("    Cleaned Citations:", citations)
                     print("    Cleaned URL:", url)
 
@@ -371,8 +393,8 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold,
                     continue
 
                 if year_found is None:
-                    print("    [SKIP] Invalid year:", raw_year)
-                    continue
+                    print("    [WARN] Year missing in page, fallback to search year", year)
+                    year_found = year
 
                 if title in summary_df.title.values:
                     print("    [SKIP] Duplicate title")
