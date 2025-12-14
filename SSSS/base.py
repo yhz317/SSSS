@@ -237,7 +237,9 @@ def query_result(key_word, year_start, year_end):
         return []
 
 def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold,
-         number_of_searches_per_key_word_per_year=10, sleep_interval=360):
+         number_of_searches_per_key_word_per_year=10, sleep_interval=360,
+         skip_completed=True
+         ):
     """
     A robust version of SSSS with strong error handling.
     """
@@ -293,10 +295,11 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold,
         for kw_idx, key_words in enumerate(key_words_list, start=1):
 
             # Already processed before?
-            if ((completed_pairs.key_words == key_words) &
-                (completed_pairs.year == year)).any():
-                print(f"[SKIP] Already done → Year {year}, Keyword {key_words}")
-                continue
+            if skip_completed:
+                if ((completed_pairs.key_words == key_words) &
+                    (completed_pairs.year == year)).any():
+                    print(f"[SKIP] Already done → Year {year}, Keyword {key_words}")
+                    continue
 
             print("\n" + "=" * 80)
             print(f"Year {year} ({year_idx}/{total_years}), "
