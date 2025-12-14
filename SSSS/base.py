@@ -209,6 +209,10 @@ def clean_url(url):
         return url.strip()
     return None
 
+def excel_safe(text):
+    if isinstance(text, str) and text[:1] in ("=", "+", "-", "@"):
+        return "'" + text
+    return text
     
 def query_result(key_word, year_start, year_end):
     """
@@ -344,6 +348,7 @@ def SSSS(topic, sub_keyword_list, year_from, year_to, citation_threshold,
 
                     # ======== NORMALIZED (SAFE) FIELDS ========
                     title     = clean_title(normalize_field(raw_title))
+                    title = excel_safe(title)
                     excerpt   = normalize_field(raw_excerpt)
                     url       = clean_url(normalize_field(raw_url))
                     url_pdf   = clean_url(normalize_field(raw_pdf))

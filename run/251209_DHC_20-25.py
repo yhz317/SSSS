@@ -43,7 +43,7 @@ number_of_searches_per_key_word_per_year = 20
 year_interval = -1
 sleep_interval = 0
 
-for year in np.arange(2025, 2019, year_interval):
+for year in np.arange(2021, 2019, year_interval):
     print("Year:", year)
     year_from = year
     year_to = year 
