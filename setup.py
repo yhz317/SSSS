@@ -25,16 +25,22 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         # 'SSSS@git+ssh://git@github.com/lz356/SSSS.git@master',
+        'beautifulsoup4',
         'numpy',
         'pandas',
-        'beautifulsoup4'
+        'requests',
+        'tqdm'
     ],
     extras_require={
+        'visualization': [
+            'matplotlib',
+            'wordcloud'
+        ],
         'dev': [
             'pytest',
-            'autopep8',
+            'autopep8<2',
             'codecov',
-            'flake8',
+            'flake8==5.0.4',
             'coverage',
             'pdoc3',
             'awscli'

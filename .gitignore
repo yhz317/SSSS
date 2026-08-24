@@ -128,3 +128,16 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .vscode/settings.json
+
+# Project-generated literature-search outputs. Keep source scripts and the
+# canonical, intentionally tracked summary CSV files under results/topics/.
+/results/topics/*/pdfs/
+/results/topics/*/papers/
+/results/topics/*/elsevier_pdfs/
+/results/topics/*/oa_pdfs/
+/results/topics/*/zotero_missing/
+/results/topics/*/full_doi.txt
+/results/topics/*/failed_doi.txt
+/results/topics/*/source_stats.txt
+/results/topics/*/output_full.bib
+/results/topics/*/summary_filtered.xlsx

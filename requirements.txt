@@ -1,0 +1,6 @@
+# Core search, API, PDF, and Zotero tooling
+beautifulsoup4
+numpy
+pandas
+requests
+tqdm

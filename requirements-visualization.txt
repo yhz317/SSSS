@@ -1,0 +1,6 @@
+# Install the core runtime dependencies first.
+-r requirements.txt
+
+# WordCloud workflow
+matplotlib
+wordcloud

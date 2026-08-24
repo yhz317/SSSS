@@ -1,4 +1,5 @@
 import itertools
+import os
 import requests
 import pandas as pd
 from time import sleep
@@ -7,37 +8,43 @@ from time import sleep
 # 配置区域
 # ----------------------------
 
-API_KEY = "fa834a18064f7577706228fd4f519148"   # ←←← 填你的 Scopus API Key
+API_KEY = os.environ.get("ELSEVIER_API_KEY")
+if not API_KEY:
+    raise RuntimeError(
+        "ELSEVIER_API_KEY is not set. Set it before running ScopusAPI.py."
+    )
 RESULTS_PER_QUERY = 25            # 每个组合返回多少篇
 OUTPUT_FILE = "scopus_results.csv"
 
 sub_keyword_list1 = [
-'4th generation',
-'5th generation',
-'fifth generation',
-'fourth generation',
-'bi-directional',
-'bidirectional',
-'low temperature',
-'low-temperature',
-'ultra-low temperature',
+    '4th generation',
+    '5th generation',
+    'fifth generation',
+    'fourth generation',
+    'bi-directional',
+    'bidirectional',
+    'low temperature',
+    'low-temperature',
+    'ultra-low temperature',
 ]
 
 sub_keyword_list2 = [
-'district heating and cooling',
-'district thermal',
-'district energy',
-'district heat pump',
-'thermal network',
-'thermal grid',
+    'district heating and cooling',
+    'district thermal',
+    'district energy',
+    'district heat pump',
+    'thermal network',
+    'thermal grid',
 ]
 
 # 关键词列表
-keyword_lists = [sub_keyword_list1,sub_keyword_list2]
+keyword_lists = [sub_keyword_list1, sub_keyword_list2]
 
 # ----------------------------
 # 生成关键词排列组合
 # ----------------------------
+
+
 def generate_queries(keyword_lists):
     combinations = list(itertools.product(*keyword_lists))
     queries = [" AND ".join(combo) for combo in combinations]
@@ -46,6 +53,8 @@ def generate_queries(keyword_lists):
 # ----------------------------
 # 调用 Scopus API
 # ----------------------------
+
+
 def scopus_search(query, count):
     url = "https://api.elsevier.com/content/search/scopus"
     params = {"query": query, "apiKey": API_KEY, "count": count}
@@ -72,6 +81,8 @@ def scopus_search(query, count):
 # ----------------------------
 # 主程序
 # ----------------------------
+
+
 def main():
     queries = generate_queries(keyword_lists)
     print(f"共生成 {len(queries)} 个检索组合：")
@@ -96,6 +107,7 @@ def main():
 
     print(f"\n检索完成！共获取 {len(df)} 条文献。")
     print(f"结果已导出到：{OUTPUT_FILE}")
+
 
 # ----------------------------
 # 执行

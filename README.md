@@ -29,4 +29,21 @@ Ensure that you have navigated to the top level of your cloned repository. You w
 
 Install the environment needed for this repository:
 
-`$ pip install -e .[dev]`
+`$ pip install -e ".[dev]"`
+
+The core package installs the search, API, PDF, and Zotero dependencies.
+The same runtime dependency list is also available in `requirements.txt`.
+To include the optional WordCloud workflow, use
+`$ pip install -e ".[dev,visualization]"` or
+`requirements-visualization.txt`.
+
+API credentials
+
+The Scopus and Elsevier scripts read the API key from the
+`ELSEVIER_API_KEY` environment variable. In PowerShell, set it for the
+current session before running those scripts:
+
+`$env:ELSEVIER_API_KEY = "your-api-key"`
+
+Before committing, install `pre-commit` in a current Python environment and
+run `pre-commit install` followed by `pre-commit run --all-files`.
